@@ -132,17 +132,6 @@ are set in `config_collapse.yaml` (`num_generations`, `train_pool_size`,
 `val_size`, `test_size`).
 
 Outputs:
-
-    data/collapse/gen_<i>_train.pt              - each generation's training data
-    data/collapse/fixed_val.pt                  - fixed validation set (all generations)
-    data/collapse/fixed_test.pt                 - fixed test set (all generations)
-    checkpoints/collapse/collapse_gen_<i>.pt     - model weights per generation
-    results/collapse_metrics.csv                - step-level train/val metrics
-    results/collapse_metrics_test_summary.csv    - per-generation test loss/acc/
-                                                    perplexity and label agreement
-                                                    with the true labels
-
-Outputs:
  
     data/collapse/gen_<i>_train.pt              - each generation's training data
     data/collapse/fixed_val.pt                  - fixed validation set (all generations)
