@@ -34,16 +34,26 @@ x_next  uniform over the K context classes, INCLUDING the query class.
 y_next  the within-sequence label of x_next (deterministic given x_next and
         the context, and recoverable only by the induction circuit).
 
+Per sequence, the truth is uniform over the K context symbols. That gives exact
+analytic reference values for the collapse metrics (see extended_metrics.py):
+
+    choice entropy        log(K)             = 0.693 nats for K = 2
+    preferred-symbol prob 1/K                = 0.50 for K = 2
+    off-context mass      0
+    token-2 CE floor      log(K)             = 0.693 nats for K = 2
+    token-2 accuracy cap  1/K                = 0.50 for K = 2
+
 Because the K context classes are a uniform sample without replacement from
 num_classes, the true marginal over x_next is uniform over ALL num_classes
-classes. That gives exact analytic reference values for the collapse metrics
-(see extended_metrics.py):
+classes:
 
     symbol entropy        log(num_classes)   = 3.912 nats for 50 classes
     symbol KL to uniform  0
     symbol coverage       num_classes
-    token-2 CE floor      log(K)             = 0.693 nats for K = 2
-    token-2 accuracy cap  1/K                = 0.50 for K = 2
+
+The marginal values hold for ANY rule that picks one of the context symbols,
+however deterministic, so they are a sanity check rather than a collapse
+measure. Collapse moves the per-sequence values.
 """
 
 import random

@@ -3,8 +3,8 @@ mode: symbolic_extended
 seed: 5
 
 # --- task: identical to config_collapse.yaml so base vs extended is a
-#     controlled comparison. The only difference between the two pipelines
-#     is how many tokens the model emits.
+#     controlled comparison. The differences between the two pipelines are
+#     how many tokens the model emits and checkpoint selection (below).
 num_classes: 50
 num_labels: 5
 context_len: 2
@@ -26,14 +26,28 @@ train_pool_size: 5000
 val_size: 2000
 test_size: 2000
 
+# The matched real-data control is this same file run with --control: every
+# generation's continuations come from the true distribution instead of the
+# model, so the pool grows to the same sizes but never holds model output.
+# It is a flag rather than a second config so the two conditions cannot drift
+# apart.
+
 # How model_{i-1} decodes its three continuation tokens when producing Data^i.
 #   sample  multinomial over the joint vocabulary (default)
-#   argmax  greedy -- collapses the symbol distribution in one generation,
-#           useful as a deliberate contrast run
+#   argmax  greedy -- removes the next-symbol coin flip from the data in one
+#           generation, useful as a deliberate contrast run
 #   hybrid  greedy for the deterministic y_q and y_next, multinomial for the
 #           genuinely stochastic x_next
 decode: sample
 temperature: 1.0
+
+# Share of each generation's pool held out to choose the stopping step: the
+# checkpoint with the lowest loss on this slice is kept. Without it, 20000
+# steps over a 5000-sequence pool let Model_0 memorise which symbol came next
+# in each training sequence, so the loop started from an already-collapsed
+# model. Selection never sees the fixed val/test sets. 0 restores
+# train-to-the-last-step, as in the base pipeline.
+select_holdout_fraction: 0.1
 
 data_dir: data/collapse_extended
 checkpoint_dir: checkpoints/collapse_extended

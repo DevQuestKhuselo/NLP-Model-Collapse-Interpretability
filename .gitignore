@@ -18,11 +18,13 @@ env/
 # Data
 data/*.h5
 data/*.hdf5
+# generated per-generation datasets -- large, and reproducible from the seed
+data/collapse*/
 
-# Model checkpoints
-checkpoints/*.pt
-checkpoints/*.pth
-checkpoints/*.ckpt
+# Model checkpoints (including the per-generation / per-seed subdirectories)
+checkpoints/**/*.pt
+checkpoints/**/*.pth
+checkpoints/**/*.ckpt
 
 # Temporary experiment files
 *.log

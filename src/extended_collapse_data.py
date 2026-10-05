@@ -34,13 +34,16 @@ before predicting the one after it.
 Why sampling rather than argmax
 -------------------------------
 The base pipeline takes an argmax because its single target is deterministic,
-so the argmax IS the model's belief. The extended task's middle token is
-genuinely stochastic: under argmax the model would emit one favourite symbol
-for every sequence and the symbol distribution would be destroyed in a single
-generation, leaving nothing to measure. Sampling preserves the distributional
-information, so collapse appears as gradual entropy loss and tail die-off --
-the Shumailov et al. signature. `decode: argmax` remains available as a
-deliberate contrast run.
+so the argmax IS the model's belief. The extended task's middle token is a
+coin flip between the context symbols: under argmax the model would always
+emit its favourite of the two, so the coin flip would be gone from the data
+after a single generation, leaving nothing to measure. Sampling preserves it,
+so collapse can appear gradually -- as the model's choice sharpening, and as
+probability leaking to symbols that were never in the context. The histogram
+of emitted symbols would NOT show even the argmax collapse: whichever context
+symbol gets picked is itself a uniform draw from the vocabulary (see
+extended_metrics.py). `decode: argmax` remains available as a deliberate
+contrast run.
 """
 
 import torch

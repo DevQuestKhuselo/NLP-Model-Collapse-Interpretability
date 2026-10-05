@@ -3,19 +3,40 @@ Collapse diagnostics for the extended task.
 
 Accuracy alone is the wrong instrument here. The base task's output is
 deterministic, so the only thing recursive training can damage is correctness.
-The extended task's middle token carries a real distribution over the symbol
-vocabulary, and that distribution can contract long before any accuracy number
-moves. These functions measure the contraction directly.
+The extended task's middle token, x_next, is a coin flip between the context
+symbols, and a model can drift away from that coin flip long before any
+accuracy number moves. These functions measure the drift directly.
+
+Where collapse can show up
+--------------------------
+Per sequence, the truth puts 1/K on each context symbol and nothing anywhere
+else. next_symbol_stats() reads the model's own probabilities on the fixed test
+contexts and measures the two ways that can go wrong: committing to a favourite
+(choice entropy falls) and leaking probability to symbols that were never in
+the context (off-context mass rises).
+
+Where it cannot
+---------------
+The histogram of emitted symbols over the whole vocabulary (symbol_counts +
+distribution_stats) stays uniform even when every choice is deterministic: each
+sequence offers K symbols drawn at random, so whichever one the model picks is
+itself a random draw. A model that always picks the first context symbol scores
+the same 3.91 nats as the truth. Those stats are kept as a global sanity check
+-- they do catch a model that avoids particular symbols everywhere -- but they
+cannot see per-sequence collapse.
 
 Everything here is a pure function of tensors -- no I/O, no model -- so the
 values can be checked against the analytic reference for the true distribution
 (see extended_data.py):
 
-    symbol entropy        log(50) = 3.912 nats
-    symbol KL to uniform  0
-    symbol coverage       50 / 50
-    type validity         1.0
-    context consistency   1.0
+    next-symbol choice entropy    log K = 0.693 nats for K = 2
+    preferred-symbol probability  1/K   = 0.50
+    off-context mass              0
+    KL(truth || model) at x_next  0
+    symbol histogram entropy      log(50) = 3.912 nats
+    symbol coverage               50 / 50
+    type validity                 1.0
+    context consistency           1.0
 """
 
 import math
@@ -93,6 +114,51 @@ def distribution_stats(counts):
     }
 
 
+def next_symbol_stats(probs, context_classes):
+    """
+    The per-sequence view of x_next -- the one collapse actually shows up in.
+
+    probs            [N, vocab] the model's distribution at the x_next slot,
+                     read on N contexts
+    context_classes  [N, K] the symbols that appeared in each context
+
+    The truth puts 1/K on each context symbol and nothing anywhere else. Each
+    quantity is a mean over sequences:
+
+        context_entropy   entropy of the model's choice among the context
+                          symbols, renormalised so that leakage cannot inflate
+                          it. Truth log K. Falls as the model commits to
+                          favourites.
+        preferred_prob    renormalised probability of its favourite context
+                          symbol. Truth 1/K.
+        off_context_mass  probability given to anything that is not a context
+                          symbol -- wrong symbols and wrong-type tokens alike.
+                          Truth 0. Rises as errors leak into the data.
+        kl_to_truth       KL(truth || model), which combines both failure
+                          modes. Truth 0. Equal in expectation to the x_next
+                          test loss minus log K, but computed exactly instead
+                          of from one sampled target per sequence.
+
+    This has to be computed from probabilities. A generated dataset holds one
+    sampled x_next per context, so no statistic of the data alone can show how
+    sure the model was when it chose.
+    """
+    K = context_classes.shape[1]
+    ctx_p = probs.gather(1, context_classes)  # [N, K]
+    in_mass = ctx_p.sum(dim=1)
+    renorm = ctx_p / in_mass.clamp_min(1e-12)[:, None]
+    context_entropy = -(renorm * renorm.clamp_min(1e-12).log()).sum(dim=1)
+    # KL(u || p) with u uniform on the K context symbols
+    kl = -math.log(K) - ctx_p.clamp_min(1e-12).log().mean(dim=1)
+
+    return {
+        "context_entropy": float(context_entropy.mean().item()),
+        "preferred_prob": float(renorm.max(dim=1).values.mean().item()),
+        "off_context_mass": float((1.0 - in_mass).mean().item()),
+        "kl_to_truth": float(kl.mean().item()),
+    }
+
+
 def type_validity(cont_ids, num_classes, num_labels):
     """
     Fraction of emitted tokens that are of the correct type for their slot:
@@ -112,19 +178,21 @@ def type_validity(cont_ids, num_classes, num_labels):
 
 def context_consistency(cont_ids, meta, num_classes):
     """
-    The mechanistic probe.
+    A behavioural probe of symbol -> value binding.
 
     Of the sequences where the emitted x_next is actually one of the context
     classes, what fraction have an emitted y_next equal to that class's
     within-sequence label?
 
-    This asks whether the induction circuit still resolves symbol -> value on
-    the model's OWN generated symbol, independently of whether that symbol was
-    a sensible thing to emit. The two failure modes are separable: a model
-    whose symbol distribution has collapsed onto one favourite can still be
-    perfectly self-consistent, whereas a model whose circuit has degraded
-    cannot be. Tracking this alongside symbol entropy tells us whether collapse
-    is eroding the distribution, the mechanism, or both.
+    This asks whether the model still resolves symbol -> value on its OWN
+    generated symbol, independently of whether that symbol was a sensible thing
+    to emit. The two failure modes are separable: a model whose next-symbol
+    choice has collapsed onto one favourite can still be perfectly
+    self-consistent, whereas a model whose binding has degraded cannot be.
+    Tracking this alongside the next-symbol stats tells us whether collapse is
+    eroding the distribution, the binding, or both. It is behavioural evidence
+    only: attributing it to a particular circuit needs attention analysis or
+    ablations.
 
     Returns (consistency, in_context_fraction). The second value is the share
     of sequences the metric could be computed on at all -- if the model emits
