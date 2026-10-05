@@ -348,6 +348,44 @@ Produces, with the run's suffix (here `_seed1`) on every file name:
     results/extended_symbol_rank_frequency_seed1.png     emitted-symbol frequency, the
                                                          global bias check
 
+### Results (seeds 1, 2, 3)
+
+Both extended conditions and the base pipeline were run with seeds 1, 2 and 3.
+Within each seed, the model-generated and control runs share an identical
+generation 0, so each seed is a paired comparison. The full write-up, with
+every table and figure, is the LaTeX report in
+[`docs/model_collapse_report.tex`](docs/model_collapse_report.tex) (compiled:
+[`docs/model_collapse_report.pdf`](docs/model_collapse_report.pdf)).
+
+![Model-generated vs real-data control](results/extended_comparison.png)
+
+Extended pipeline at generation 4, mean over seeds:
+
+| | Model-generated | Real-data control | Truth | Gap range over seeds |
+|---|---|---|---|---|
+| KL from the true next-symbol distribution (nats) | 0.389 | 0.157 | 0 | +0.21 to +0.25 |
+| Probability outside the context | 11.0% | 2.7% | 0% | +7.4 to +9.4 points |
+| Next-symbol choice entropy (nats) | 0.511 | 0.590 | 0.693 | −0.071 to −0.084 |
+| Self-consistency | 0.943 | 0.997 | 1.0 | −3.8 to −6.5 points |
+| `y_next` accuracy | 0.984 | 0.999 | — | −0.9 to −1.8 points |
+
+- **Training on model output keeps the first model's errors.** Model 0
+  (stopped at the best held-out loss) leaks about 10% of its next-symbol
+  probability outside the context and is overconfident in its choice. Sampling
+  from it writes those errors into Data^1, and every later model learns them.
+  The control, given the same amount of real data, unlearns them.
+- **The gap grows every generation, in all three seeds.** Without the control
+  the chain looks flat (KL 0.425 → 0.389, leakage 10.2% → 11.0%), which would
+  read as "no collapse".
+- **No runaway collapse**, as expected when real data stays in the pool
+  (Gerstgrasser et al., 2024): the errors persist but stay bounded.
+- **The base pipeline shows no collapse.** Test accuracy goes from 0.997 to
+  0.999, and its model-written labels agree with the truth in 99.72% to
+  99.96% of sequences, so the synthetic data is almost the same as real data.
+
+Three seeds is few: every seed agrees in direction, but treat the paired
+t-tests in the report as indicative.
+
 <a id="methodological-revisions"></a>
 ### Methodological revisions — what we changed and why
 
