@@ -1,0 +1,40 @@
+mode: symbolic_extended
+
+seed: 5
+
+# --- task: identical to config_collapse.yaml so base vs extended is a
+#     controlled comparison. The only difference between the two pipelines
+#     is how many tokens the model emits.
+num_classes: 50
+num_labels: 5
+context_len: 2
+
+d_model: 64
+num_heads: 8
+depth: 2
+
+batch_size: 32
+lr: 0.0001
+train_steps: 20000
+eval_every: 500
+
+device: auto
+
+# --- model collapse pipeline
+num_generations: 5
+train_pool_size: 5000
+val_size: 2000
+test_size: 2000
+
+# How model_{i-1} decodes its three continuation tokens when producing Data^i.
+#   sample  multinomial over the joint vocabulary (default)
+#   argmax  greedy -- collapses the symbol distribution in one generation,
+#           useful as a deliberate contrast run
+#   hybrid  greedy for the deterministic y_q and y_next, multinomial for the
+#           genuinely stochastic x_next
+decode: sample
+temperature: 1.0
+
+data_dir: data/collapse_extended
+checkpoint_dir: checkpoints/collapse_extended
+results_csv: results/extended_collapse_metrics.csv
