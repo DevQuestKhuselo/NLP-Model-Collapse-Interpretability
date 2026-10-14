@@ -354,8 +354,8 @@ Both extended conditions and the base pipeline were run with seeds 1, 2 and 3.
 Within each seed, the model-generated and control runs share an identical
 generation 0, so each seed is a paired comparison. The full write-up, with
 every table and figure, is the LaTeX report in
-[`docs/model_collapse_report.tex`](docs/model_collapse_report.tex) (compiled:
-[`docs/model_collapse_report.pdf`](docs/model_collapse_report.pdf)).
+[`docs/demo_report.tex`](docs/demo_report.tex) (compiled:
+[`docs/demo_report.pdf`](docs/demo_report.pdf)).
 
 ![Model-generated vs real-data control](results/extended_comparison.png)
 
